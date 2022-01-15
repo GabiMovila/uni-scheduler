@@ -8,24 +8,41 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.text.MessageFormat;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Scanner;
+import java.util.*;
 
 @Slf4j
 public class ProgramLogic {
-    private static final short durationOfCourse = 2;
+
+    private static final Short numberOfDays = 5;
+    private static final Short numberOfClassesInADay = 6;
+    private static final String[][] weekGrid = new String[numberOfDays][numberOfClassesInADay];
     private static final List<Professor> professorList = new ArrayList<>();
     private static final List<String> roomsList = new ArrayList<>();
-    private static final int[][] calendar = new int[5][12 / durationOfCourse];
-    public static Short numberOfGroups;
     private static final Scanner keyboardDataReader = new Scanner(System.in);
+    private static final Short durationOfCourse = 2;
+    private static final Map<Integer, Integer> classNumberToHourMap = new HashMap<>();
+    public static Short numberOfGroups;
 
     public static void startProgram() {
+        defineHourMap();
         readProfessorsAndCourses();
         readNumberOfGroups();
         assignProfessorsToRooms();
+        printGrid();
         cleanUp();
+    }
+
+    /**
+     * Maps the class number to the starting hour (first class starts at 8, second at 10 and so on)
+     */
+    public static void defineHourMap() {
+        classNumberToHourMap.put(0, 8);
+        classNumberToHourMap.put(1, 10);
+        classNumberToHourMap.put(2, 12);
+        classNumberToHourMap.put(3, 14);
+        classNumberToHourMap.put(4, 16);
+        classNumberToHourMap.put(5, 18);
+
     }
 
     public static void readNumberOfGroups() {
@@ -53,7 +70,6 @@ public class ProgramLogic {
                 professorList.add(professor);
             }
             System.out.println(professorList.toArray().length + " professors and courses read successfully");
-            System.out.println(professorList);
             dataReader.close();
         } catch (FileNotFoundException e) {
             System.out.println("File not found.");
@@ -63,7 +79,7 @@ public class ProgramLogic {
     public static Preferences readProfessorPreferences() {
         Preferences preferences = new Preferences();
         preferences.setUnavailableDays(readUnavailableDays());
-        preferences.setWantedHours(readWantedHours());
+       // preferences.setWantedHours(readWantedHours());
         return preferences;
     }
 
@@ -94,9 +110,69 @@ public class ProgramLogic {
     }
 
     public static void assignProfessorsToRooms() {
-        System.out.println("KAKA: " + calendar[0][0]);
-        //TODO ADD PROFESSORS ACCORDING TO PREFERENCES
+        //classNumber represents the first, second, etc. class of the day
+        for (int dayInWeek = 0; dayInWeek < numberOfDays; dayInWeek++)
+            for (int classNumber = 0; classNumber < numberOfClassesInADay; classNumber++) {
+                for (var professor : professorList) {
+                    if (isRoomAvailable(dayInWeek, classNumber) && isPreferencesOk(professor, dayInWeek, classNumber) && isProfessorStillAvailable(professor)) {
+                        weekGrid[dayInWeek][classNumber] = professor.course.name;
+                    }
+                }
+            }
     }
+
+    /**
+     * Checks if the professor is available in that day and if the hour matches his preference
+     */
+    private static boolean isPreferencesOk(Professor professor, int day, int classNumber) {
+        return !professor.preferences.unavailableDays.contains(day);
+        //return isHourMatchingPreferedHour(professor.preferences.wantedHours, convertClassNumberIntoHour(classNumber));
+    }
+
+    //TODO add logic for wanted hours
+    private static boolean isHourMatchingPreferedHour(String preferedHour, int actualHour) {
+        if (preferedHour.isEmpty()) {
+            return true;
+        }
+        var array = preferedHour.toCharArray();
+        if (array[0] == '<') {
+            if (actualHour < Integer.parseInt(String.valueOf(array[1]))) {
+                return true;
+            }
+        }
+
+        if (array[0] == '>') {
+            return actualHour > Integer.parseInt(String.valueOf(array[1]));
+        }
+
+        return false;
+    }
+
+    private static int convertClassNumberIntoHour(int classNumber) {
+        return classNumberToHourMap.get(classNumber);
+    }
+
+    private static boolean isRoomAvailable(int day, int classNumber) {
+        return weekGrid[day][classNumber] == null;
+    }
+
+    private static boolean isProfessorStillAvailable(Professor professor) {
+        if (professor.numberOfCoursesPerWeek < numberOfGroups) {
+            professor.numberOfCoursesPerWeek++;
+            return true;
+        }
+        return false;
+    }
+
+    public static void printGrid() {
+        for (int dayInWeek = 0; dayInWeek < numberOfDays; dayInWeek++) {
+            for (int classNumber = 0; classNumber < numberOfClassesInADay; classNumber++) {
+                System.out.println(weekGrid[dayInWeek][classNumber] + "\t");
+            }
+            System.out.println("\n");
+        }
+    }
+
 
     public static void assignStudentsToRooms() {
         //TODO ASSIGN GROUPS TO CLASSES
@@ -105,4 +181,7 @@ public class ProgramLogic {
     protected static void cleanUp() {
         keyboardDataReader.close();
     }
+
+    //TODO CHANGE from static CLI to REST
+    //TODO Create GUI
 }
